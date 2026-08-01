@@ -1,4 +1,5 @@
 package com.train_ticket_booking;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
@@ -8,15 +9,6 @@ import java.sql.Statement;
 
 class Main{
     public static void main(String args[]) throws Exception{
-
-        Map<Integer, String> id_to_station = new HashMap<>();
-        id_to_station.put(1, "Delhi");
-        id_to_station.put(2, "Bhopal");
-        id_to_station.put(3, "Agra");
-        id_to_station.put(4, "Kolkatta");
-        id_to_station.put(5, "Cherthala");
-        id_to_station.put(6, "Ernakulam");
-
         BookingSystem bs = new BookingSystem();
         //menu for user
         System.out.print("\nEnter\n1 to get train details between 2 stations\n2 to book tickets\n3 to view your booked tickets\n");
@@ -29,12 +21,16 @@ class Main{
 
         if(opt == 1){
             //show the available stations and ask input from user
-            System.out.print("\n1-Delhi\n2-Bhopal\n3-Agra\n4-Kolkatta\n5-Cherthala\n6-Eranakulam");
+            ArrayList<String> stations = bs.getListOfStations();
+            System.out.println();
+            for(int i = 0; i < stations.size(); i++){
+                System.out.print(i+1 + " - " + stations.get(i) + "\n");
+            }
             System.out.print("\nEnter the respective number of From and To station: ");
             int f, t;
             f = sc.nextInt();
             t = sc.nextInt();
-            bs.getTrainDetailsBtwTwoStations(id_to_station.get(f), id_to_station.get(t));
+            bs.getTrainDetailsBtwTwoStations(stations.get(f-1), stations.get(t-1));
         }else{
             System.out.print("Invalid input");
         }
@@ -79,5 +75,9 @@ class BookingSystem{
         } catch (Exception e) {
             System.out.print("Error occured while getting train details: " + e);
         }
+    }
+
+    ArrayList<String> getListOfStations(){
+        return db.getListOfStations();
     }
 }
