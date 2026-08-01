@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 .gradle
 **/build/
 !**/src/**/build/
@@ -19,3 +20,13 @@ gradle-app.setting
 .project
 # JDT-specific (Eclipse Java Development Tools)
 .classpath
+=======
+# Ignore Gradle project-specific cache directory
+.gradle
+
+# Ignore Gradle build output directory
+build
+
+# Ignore Kotlin plugin data
+.kotlin
+>>>>>>> 7d9e1be (-initial commit -added the feature to get list of trains)
