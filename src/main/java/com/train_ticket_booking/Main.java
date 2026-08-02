@@ -1,11 +1,7 @@
 package com.train_ticket_booking;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Scanner;
-import java.sql.Connection;
 import java.sql.ResultSet;
-import java.sql.Statement;
 
 class Main{
     public static void main(String args[]) throws Exception{
@@ -31,6 +27,14 @@ class Main{
             f = sc.nextInt();
             t = sc.nextInt();
             bs.getTrainDetailsBtwTwoStations(stations.get(f-1), stations.get(t-1));
+            //get the train number that user wants to book
+            System.out.printf("\nEnter the Train Number to get the number of free seats and book tickets: ");
+            String trainNumber = sc.next();
+            System.out.print("\nEnter the date on which you want ticket in YYYY-MM-DD format: ");
+            String date = sc.next();
+            //show the number of free seats available
+            int freeSeats = bs.getFreeSeats(trainNumber, date, stations.get(f-1));
+            System.out.print("\nFree seats: " + freeSeats);
         }else{
             System.out.print("Invalid input");
         }
@@ -66,12 +70,19 @@ class BookingSystem{
             return;
         }
         try {
-            System.out.print("====== Avaible Trains From " + from + " to " + to + " ======\n");
-            System.out.print("Train Name\tArrival Time\tDeparture Time\n");
+            System.out.printf("\n====== Available Trains From %s to %s ======\n", from, to);
+            System.out.printf("%-15s %-20s %-16s %-12s\n", "Train Number", "Train Name", "Departure Time", "Arrival Time\n");
+
             while(res.next()){
                 String trainName = getTrainName(res.getString("train_id"));
-                System.out.println(trainName + "\t" + res.getString("arrival_time") + "\t" + res.getString("departure_time"));
+                System.out.printf("%-15s %-20s %-16s %-12s\n",
+                    res.getString("train_id"),
+                    trainName,
+                    res.getString("departure_time"),
+                    res.getString("arrival_time")
+                );
             }
+
         } catch (Exception e) {
             System.out.print("Error occured while getting train details: " + e);
         }
@@ -79,5 +90,11 @@ class BookingSystem{
 
     ArrayList<String> getListOfStations(){
         return db.getListOfStations();
+    }
+
+    int getFreeSeats(String trainNumber, String date, String stationId){
+        System.out.print("\nSelected train number is " + trainNumber + ". To book on " + date);
+        int freeSeats = db.getFreeSeats(trainNumber, date, stationId);
+        return freeSeats;
     }
 }
