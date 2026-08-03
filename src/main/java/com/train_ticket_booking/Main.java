@@ -12,7 +12,7 @@ class Main{
         int opt;
         Scanner sc = new Scanner(System.in);
 
-        System.out.print("\nEnter an option:");
+        System.out.print("\nEnter an option: ");
         opt = sc.nextInt();
 
         if(opt == 1){
@@ -35,6 +35,10 @@ class Main{
             //show the number of free seats available
             int freeSeats = bs.getFreeSeats(trainNumber, date, stations.get(f-1));
             System.out.print("\nFree seats: " + freeSeats);
+            //Get the number of seats to book
+            System.out.print("\nEnter the number of seats to be booked: ");
+            int seatsToBook = sc.nextInt();
+            bs.bookTickets(seatsToBook, trainNumber, stations.get(f-1), stations.get(t-1), date);
         }else{
             System.out.print("Invalid input");
         }
@@ -94,7 +98,19 @@ class BookingSystem{
 
     int getFreeSeats(String trainNumber, String date, String stationId){
         System.out.print("\nSelected train number is " + trainNumber + ". To book on " + date);
-        int freeSeats = db.getFreeSeats(trainNumber, date, stationId);
+        int freeSeats = db.getFreeSeats(trainNumber, date, stationId).get(0);
         return freeSeats;
+    }
+
+    void bookTickets(int seatsToBook, String trainNumber, String stationFrom, String stationTo, String date){
+        //get the stations between from and to
+        ArrayList<String> stationsBetween = db.getStationsBetween(trainNumber, stationFrom, stationTo);
+        System.out.print(stationsBetween);
+
+        //add each station
+        boolean res = db.addStationDetailsToSql(stationsBetween, seatsToBook, trainNumber, date, stationTo);
+        if(res){
+            System.out.println("\nSuccessfully added the rows");
+        }
     }
 }
