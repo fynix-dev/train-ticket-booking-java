@@ -4,7 +4,9 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
-
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.sql.PreparedStatement;
 
 class Database{
@@ -34,7 +36,6 @@ class Database{
             return null;
         }
     }
-
 
     ResultSet getTrainNameFromId(String train_id) {
         String query = "SELECT train_name FROM train WHERE train_id = ?";
@@ -164,66 +165,141 @@ class Database{
             String sqlInsert = "insert into station_to_seat_mapping (train_id, station_id, seats, date) values(?, ?, ?, ?)";
             String sqlSelect = "select seats from station_to_seat_mapping where train_id = ? and station_id = ? and date = ?";
             String sqlUpdate = "update station_to_seat_mapping set seats = ? where train_id = ? and station_id = ? and date = ?";
+            String sqlBookedSeats = "select seats from station_to_seat_mapping where station_id in ";
+            //get all the booked seats and find the common free seats
+            Statement pstmtBookedSeats = conn.createStatement();
+            String stations = "('" + String.join("','", stationsBetween) + "')";
+
+            ResultSet resSeats = pstmtBookedSeats.executeQuery(sqlBookedSeats + stations + " and train_id='" + trainNumber + "' and date='" + date + "'");
+            ArrayList<Integer> bookedSeatsAcrossJourney = new ArrayList<>();
+
+            while(resSeats.next()){
+                String inputList = resSeats.getString("seats").replace("[", "").replace("]", "");
+                ArrayList<Integer> seats = new ArrayList<>();
+                if(!inputList.trim().isEmpty()){
+                    for(String num : inputList.split(",")){
+                        seats.add(Integer.parseInt(num.trim()));
+                    }
+                }
+
+                //after for loop we have the seats booked at that station
+                Set<Integer> uniqueSet = new LinkedHashSet<>(bookedSeatsAcrossJourney);
+                uniqueSet.addAll(seats);
+
+                bookedSeatsAcrossJourney = new ArrayList<>(uniqueSet);
+            }
+
+            // now we got the commonly booked seat along the entire journey, now allot seat to the user which is not booked
+            int totalSeats = 15;
+            if(seatsToBook >= (totalSeats - bookedSeatsAcrossJourney.size())){
+                System.out.println("Not enough seats available");
+                return false;
+            }
+            int seatsToBeBooked = seatsToBook;
+            ArrayList<Integer> allotedSeats = new ArrayList<>();
+            for(int seat = 1; seat <= totalSeats && seatsToBeBooked > 0; seat++){
+                if(!bookedSeatsAcrossJourney.contains(seat)){
+                    allotedSeats.add(seat);
+                    seatsToBeBooked--;
+                }
+            }
+            System.out.println("Seats alloted to user are: " + allotedSeats);
+            //bookedSeatsAcrossJourney.addAll(allotedSeats);
 
             //go through each station id and add it to sql
             for(int i = 0; i < stationsBetween.size() - 1; i++){
-                int flag = 0;
                 //check if the row with station id and date is already created
                 // if yes then just update it
-                try {
-                    //get total seats to be added
-                    int totalSeatsToBeAdded = getFreeSeats(trainNumber, date, stationsBetween.get(i)).get(1) + seatsToBook;
-                    //add the seats numbers to the list
-                    ArrayList<Integer> seats = new ArrayList<>();
-                    for(int j = 1; j <= totalSeatsToBeAdded; j++){
-                        seats.add(j);
+
+                PreparedStatement pstmtSelect = conn.prepareStatement(sqlSelect);
+                pstmtSelect.setString(1, trainNumber);
+                pstmtSelect.setString(2, stationsBetween.get(i));
+                pstmtSelect.setString(3, date);
+
+                ResultSet res = pstmtSelect.executeQuery();
+
+                if(res.next()){
+                    //if it goes inside while, then we have to update the already created rows
+                    PreparedStatement pstmtUpdate = conn.prepareStatement(sqlUpdate);
+
+                    String prevSeats = res.getString("seats").replace("[", "").replace("]", "");
+                    ArrayList<Integer> finalSeats = new ArrayList<>();
+                    if(!prevSeats.trim().isEmpty()){
+                        for(String num: prevSeats.split(",")){
+                            finalSeats.add(Integer.parseInt(num.trim()));
+                        }
                     }
+                    finalSeats.addAll(allotedSeats);
+                    Collections.sort(finalSeats);
 
-                    PreparedStatement pstmtSelect = conn.prepareStatement(sqlSelect);
-                    pstmtSelect.setString(1, trainNumber);
-                    pstmtSelect.setString(2, stationsBetween.get(i));
-                    pstmtSelect.setString(3, date);
+                    pstmtUpdate.setString(1, finalSeats.toString());
+                    pstmtUpdate.setString(2, trainNumber);
+                    pstmtUpdate.setString(3, stationsBetween.get(i));
+                    pstmtUpdate.setString(4, date);
 
-                    ResultSet res = pstmtSelect.executeQuery();
-
-                    while(res.next()){
-                        //if it goes inside while, then we have to update the already created rows
-                        PreparedStatement pstmtUpdate = conn.prepareStatement(sqlUpdate);
-
-                        pstmtUpdate.setString(1, seats.toString());
-                        pstmtUpdate.setString(2, trainNumber);
-                        pstmtUpdate.setString(3, stationsBetween.get(i));
-                        pstmtUpdate.setString(4, date);
-
-                        //update the table feild
-                        pstmtUpdate.executeUpdate();
-                        System.out.print("\nFound the row already, so just updated it");
-                        flag = 1;
-                    }
-                    //if already updated then do not create
-                    if(flag == 1){
-                        continue;
-                    }
-
-                    //if it comes out of while loop then it means we have to create a new row
+                    //update the table feild
+                    pstmtUpdate.executeUpdate();
+                    System.out.print("\nFound the row already, so just updated it");
+                }else{
+                    //if it comes into else part then it means we have to create a new row
                     PreparedStatement pstmtInsert = conn.prepareStatement(sqlInsert);
                     pstmtInsert.setString(1, trainNumber);
                     pstmtInsert.setString(2, stationsBetween.get(i));
-                    pstmtInsert.setString(3, seats.toString());
+                    pstmtInsert.setString(3, allotedSeats.toString());
                     pstmtInsert.setString(4, date);
                     //update the table
                     System.out.print("\nNo rows already found, so creating new one");
                     pstmtInsert.executeUpdate();
-                } catch (Exception e) {
-                    System.out.print("Error occured while checking if row is already created: " + e);
-                    return false;
                 }
 
             }
+            // return true;
             return true;
-
         } catch (Exception e) {
             System.out.println("Error occurred: " + e);
+            return false;
+        }
+    }
+
+    boolean login(String username, String password) {
+        String sql = "SELECT * FROM users WHERE username=? AND password=?";
+
+        try {
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, username);
+            pstmt.setString(2, password);
+
+            ResultSet res = pstmt.executeQuery();
+            return res.next();
+        } catch (Exception e) {
+            System.out.println(e);
+            return false;
+        }
+    }
+
+    boolean signup(String username, String password) {
+        try {
+            String check = "SELECT * FROM users WHERE username=?";
+            PreparedStatement pstmt = conn.prepareStatement(check);
+            pstmt.setString(1, username);
+
+            ResultSet res = pstmt.executeQuery();
+
+            if(res.next()){
+                System.out.println("Username already exists.");
+                return false;
+            }
+
+            String insert = "INSERT INTO users(username,password) VALUES(?,?)";
+            pstmt = conn.prepareStatement(insert);
+            pstmt.setString(1, username);
+            pstmt.setString(2, password);
+
+            pstmt.executeUpdate();
+            return true;
+
+        } catch(Exception e){
+            System.out.println(e);
             return false;
         }
     }

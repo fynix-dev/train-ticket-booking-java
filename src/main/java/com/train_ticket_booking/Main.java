@@ -6,8 +6,18 @@ import java.sql.ResultSet;
 class Main{
     public static void main(String args[]) throws Exception{
         BookingSystem bs = new BookingSystem();
-        //menu for user
-        System.out.print("\nEnter\n1 to get train details between 2 stations\n2 to book tickets\n3 to view your booked tickets\n");
+        Authentication auth = new Authentication();
+
+        if(!auth.authenticate()){
+            return;
+        }
+
+        // Existing menu starts here
+        System.out.print(
+            "\nEnter\n1 to get train details between 2 stations\n" +
+            "2 to book tickets\n" +
+            "3 to view your booked tickets\n"
+        );
 
         int opt;
         Scanner sc = new Scanner(System.in);
