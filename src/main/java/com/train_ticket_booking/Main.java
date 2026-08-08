@@ -1,22 +1,25 @@
 package com.train_ticket_booking;
 import java.util.ArrayList;
 import java.util.Scanner;
+
+import com.mysql.cj.protocol.Resultset;
+
 import java.sql.ResultSet;
 
 class Main{
     public static void main(String args[]) throws Exception{
         BookingSystem bs = new BookingSystem();
         Authentication auth = new Authentication();
+        String userId = auth.authenticate();
 
-        if(!auth.authenticate()){
+        if(userId == ""){
             return;
         }
 
         // Existing menu starts here
         System.out.print(
-            "\nEnter\n1 to get train details between 2 stations\n" +
-            "2 to book tickets\n" +
-            "3 to view your booked tickets\n"
+            "\nEnter\n1 to book tickets\n" +
+            "2 to view booked tickets\n"
         );
 
         int opt;
@@ -48,7 +51,10 @@ class Main{
             //Get the number of seats to book
             System.out.print("\nEnter the number of seats to be booked: ");
             int seatsToBook = sc.nextInt();
-            bs.bookTickets(seatsToBook, trainNumber, stations.get(f-1), stations.get(t-1), date);
+            bs.bookTickets(seatsToBook, trainNumber, stations.get(f-1), stations.get(t-1), date, userId);
+        }else if(opt == 2){
+            // call the function to get details of user booking
+            bs.getUserBookings(userId);
         }else{
             System.out.print("Invalid input");
         }
@@ -112,15 +118,32 @@ class BookingSystem{
         return freeSeats;
     }
 
-    void bookTickets(int seatsToBook, String trainNumber, String stationFrom, String stationTo, String date){
+    void bookTickets(int seatsToBook, String trainNumber, String stationFrom, String stationTo, String date, String userId){
         //get the stations between from and to
         ArrayList<String> stationsBetween = db.getStationsBetween(trainNumber, stationFrom, stationTo);
-        System.out.print(stationsBetween);
 
         //add each station
-        boolean res = db.addStationDetailsToSql(stationsBetween, seatsToBook, trainNumber, date, stationTo);
+        boolean res = db.addStationDetailsToSql(stationsBetween, seatsToBook, trainNumber, date, stationFrom, stationTo, userId);
         if(res){
             System.out.println("\nSuccessfully added the rows");
+        }
+    }
+
+    void getUserBookings(String userId){
+        ResultSet userBookings = db.fetchUserBookings(userId);
+
+        try {
+            if(userBookings == null || !userBookings.first()){
+                System.out.println("No booking found for this user");
+                return;
+            }
+
+            System.out.printf("%-12s %-10s %-20s %-20s %-15s %-15s %-15s\n", "PNR", "Train No", "From", "To", "Seats", "Date", "Status");
+            do{
+                System.out.printf("%-12s %-10s %-20s %-20s %-15s %-15s %-15s\n", userBookings.getString("booking_id"), userBookings.getString("train_id"), userBookings.getString("from_station"), userBookings.getString("to_station"), userBookings.getString("seats"), userBookings.getString("date"), userBookings.getString("status"));
+            }while(userBookings.next());
+        } catch (Exception e) {
+            System.out.println(e);
         }
     }
 }

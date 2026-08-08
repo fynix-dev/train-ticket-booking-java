@@ -8,9 +8,11 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.sql.PreparedStatement;
+import java.util.UUID;
 
 class Database{
     Connection conn;
+    String userId;
 
     Database() {
         try {
@@ -159,7 +161,7 @@ class Database{
         }
     }
 
-    boolean addStationDetailsToSql(ArrayList<String> stationsBetween, int seatsToBook, String trainNumber, String date, String stationTo){
+    boolean addStationDetailsToSql(ArrayList<String> stationsBetween, int seatsToBook, String trainNumber, String date, String stationFrom,  String stationTo, String userId){
         try {
             // Use PreparedStatement to prevent SQL injection
             String sqlInsert = "insert into station_to_seat_mapping (train_id, station_id, seats, date) values(?, ?, ?, ?)";
@@ -204,7 +206,6 @@ class Database{
                 }
             }
             System.out.println("Seats alloted to user are: " + allotedSeats);
-            //bookedSeatsAcrossJourney.addAll(allotedSeats);
 
             //go through each station id and add it to sql
             for(int i = 0; i < stationsBetween.size() - 1; i++){
@@ -239,7 +240,7 @@ class Database{
 
                     //update the table feild
                     pstmtUpdate.executeUpdate();
-                    System.out.print("\nFound the row already, so just updated it");
+
                 }else{
                     //if it comes into else part then it means we have to create a new row
                     PreparedStatement pstmtInsert = conn.prepareStatement(sqlInsert);
@@ -248,16 +249,56 @@ class Database{
                     pstmtInsert.setString(3, allotedSeats.toString());
                     pstmtInsert.setString(4, date);
                     //update the table
-                    System.out.print("\nNo rows already found, so creating new one");
                     pstmtInsert.executeUpdate();
                 }
 
             }
+
+            addBookingDetails(trainNumber, stationFrom, stationTo, allotedSeats.toString(), "confirm", userId, date);
             // return true;
             return true;
         } catch (Exception e) {
             System.out.println("Error occurred: " + e);
             return false;
+        }
+    }
+
+    String generatePnrNumber(){
+        // 1. Generate a random UUID (Version 4)
+        UUID uuid = UUID.randomUUID();
+
+        // 2. Convert to string and remove hyphens
+        String uuidString = uuid.toString().replace("-", "");
+
+        // 3. Convert the 32-character hex string to a BigInteger (base 16)
+        // This creates a massive unique decimal number
+        java.math.BigInteger bigInt = new java.math.BigInteger(uuidString, 16);
+
+        // 4. Convert to string and take the last 6 characters
+        String numericCode = bigInt.toString().substring(bigInt.toString().length() - 8);
+
+        return numericCode;
+    }
+
+    void addBookingDetails(String trainNumber, String stationFrom, String stationTo, String allotedSeats, String status, String userName, String date){
+        String query = "insert into booking (booking_id, train_id, user_id, from_station, to_station, seats, status, date) values(?, ?, ?, ?, ?, ?, ?, ?)";
+        String bookingId = generatePnrNumber();
+        try {
+            // add the data into the table
+            PreparedStatement pstmtInsert = conn.prepareStatement(query);
+            pstmtInsert.setString(1, bookingId);
+            pstmtInsert.setString(2, trainNumber);
+            pstmtInsert.setString(3, userName);
+            pstmtInsert.setString(4, stationFrom);
+            pstmtInsert.setString(5, stationTo);
+            pstmtInsert.setString(6, allotedSeats);
+            pstmtInsert.setString(7, status);
+            pstmtInsert.setString(8, date);
+
+            //update the table
+            pstmtInsert.executeUpdate();
+        } catch (Exception e) {
+            System.out.println("Error occured while adding data to booking table: " + e);
         }
     }
 
@@ -270,7 +311,12 @@ class Database{
             pstmt.setString(2, password);
 
             ResultSet res = pstmt.executeQuery();
-            return res.next();
+            if(res.next()){
+                userId = res.getString("username");
+                System.out.println(userId);
+                return true;
+            }
+            return false;
         } catch (Exception e) {
             System.out.println(e);
             return false;
@@ -296,11 +342,27 @@ class Database{
             pstmt.setString(2, password);
 
             pstmt.executeUpdate();
+            userId = username;
             return true;
 
         } catch(Exception e){
             System.out.println(e);
             return false;
+        }
+    }
+
+    ResultSet fetchUserBookings(String userId){
+        String query = "select * from booking where user_id = ?";
+        try {
+            int type = ResultSet.TYPE_SCROLL_INSENSITIVE;
+            int concurrency = ResultSet.CONCUR_READ_ONLY;
+            PreparedStatement pstmt = conn.prepareStatement(query, type, concurrency);
+            pstmt.setString(1, userId);
+            ResultSet res =  pstmt.executeQuery();
+            return res;
+        } catch (Exception e) {
+            System.out.println("Error occured while fetching user booking: " + e);
+            return null;
         }
     }
 }

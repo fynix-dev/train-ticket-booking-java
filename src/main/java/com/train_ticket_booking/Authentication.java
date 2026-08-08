@@ -6,7 +6,7 @@ class Authentication {
 
     Database db = new Database();
 
-    boolean authenticate() {
+    String authenticate() {
 
         Scanner sc = new Scanner(System.in);
 
@@ -26,20 +26,20 @@ class Authentication {
         if(opt == 1){
             if(db.login(username,password)){
                 System.out.println("Login Successful\n");
-                return true;
+                return username;
             }else{
                 System.out.println("Invalid Username or Password");
-                return false;
+                return "";
             }
         }
 
         if(opt == 2){
             if(db.signup(username,password)){
                 System.out.println("Signup Successful\n");
-                return true;
+                return username;
             }
         }
 
-        return false;
+        return "";
     }
 }
